@@ -1,0 +1,5 @@
+{
+  "name": "AuthLog Analyzer",
+  "description": "A professional tool for analyzing and visualizing authentication logs from CSV files, featuring correlation maps and flow analysis.",
+  "requestFramePermissions": []
+}
