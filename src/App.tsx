@@ -128,9 +128,12 @@ export default function App() {
       const matchesSearch = 
         log.user.toLowerCase().includes(filters.search.toLowerCase()) ||
         log.username.toLowerCase().includes(filters.search.toLowerCase()) ||
-        log.ipAddress.includes(filters.search) ||
+        log.ipAddress.toLowerCase().includes(filters.search.toLowerCase()) ||
         log.application.toLowerCase().includes(filters.search.toLowerCase()) ||
-        log.location.toLowerCase().includes(filters.search.toLowerCase());
+        log.location.toLowerCase().includes(filters.search.toLowerCase()) ||
+        (log.mfaResult || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+        (log.authRequirement || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+        (log.userAgent || '').toLowerCase().includes(filters.search.toLowerCase());
       
       const matchesStatus = filters.status === 'All' || log.status === filters.status;
       const matchesUser = filters.user === 'All' || log.user === filters.user;
@@ -974,10 +977,14 @@ export default function App() {
                     </thead>
                     <tbody className="divide-y divide-black/5">
                       {securityMetrics.highRiskUsers.map((item, i) => (
-                        <tr key={i} className="hover:bg-gray-50 cursor-pointer" onClick={() => setFilters(f => ({ ...f, search: item.user }))}>
-                          <td className="py-3 text-xs font-bold truncate max-w-[150px]">{item.user}</td>
-                          <td className="py-3 text-xs text-center">{item.uniqueIPs}</td>
-                          <td className="py-3 text-xs text-center">{item.uniqueApps}</td>
+                        <tr 
+                          key={i} 
+                          className="hover:bg-gray-50 cursor-pointer group" 
+                          onClick={() => setFilters(f => ({ ...f, user: item.user }))}
+                        >
+                          <td className="py-3 text-xs font-bold truncate max-w-[150px] group-hover:text-blue-600 transition-colors">{item.user}</td>
+                          <td className="py-3 text-xs text-center font-mono">{item.uniqueIPs}</td>
+                          <td className="py-3 text-xs text-center font-mono">{item.uniqueApps}</td>
                           <td className="py-3 text-xs text-right">
                             <span className={cn(
                               "px-2 py-0.5 rounded-full text-[10px] font-bold",
@@ -1102,7 +1109,7 @@ export default function App() {
                       className="flex items-center justify-between p-3 border border-black/5 hover:border-black transition-colors group cursor-pointer"
                       onClick={() => {
                         setFilters(f => ({ ...f, user: alert.user }));
-                        setActiveTab('raw');
+                        setActiveTab('logs');
                       }}
                     >
                       <div className="flex items-center gap-4">
@@ -1165,20 +1172,28 @@ export default function App() {
                     <h3 className="text-sm font-bold uppercase tracking-widest italic">MFA Pattern Analysis</h3>
                     <p className="text-[10px] text-gray-500 mt-1">Analyzing MFA outcomes across requirements, applications, and user agents.</p>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="text-center">
-                      <div className="text-[10px] text-gray-400 uppercase">Success Rate</div>
-                      <div className="text-lg font-mono font-bold text-emerald-600">
-                        {securityMetrics.mfaStats.total > 0 ? ((securityMetrics.mfaStats.success / securityMetrics.mfaStats.total) * 100).toFixed(1) : 0}%
-                      </div>
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => setFilters(f => ({ ...f, search: 'success' }))}
+                        className="text-center hover:bg-gray-50 p-1 rounded transition-colors group"
+                        title="Filter by MFA Success"
+                      >
+                        <div className="text-[10px] text-gray-400 uppercase group-hover:text-black transition-colors">Success Rate</div>
+                        <div className="text-lg font-mono font-bold text-emerald-600">
+                          {securityMetrics.mfaStats.total > 0 ? ((securityMetrics.mfaStats.success / securityMetrics.mfaStats.total) * 100).toFixed(1) : 0}%
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => setFilters(f => ({ ...f, search: 'fail' }))}
+                        className="text-center hover:bg-gray-50 p-1 rounded transition-colors group"
+                        title="Filter by MFA Failure"
+                      >
+                        <div className="text-[10px] text-gray-400 uppercase group-hover:text-black transition-colors">Failure Rate</div>
+                        <div className="text-lg font-mono font-bold text-red-600">
+                          {securityMetrics.mfaStats.total > 0 ? ((securityMetrics.mfaStats.failure / securityMetrics.mfaStats.total) * 100).toFixed(1) : 0}%
+                        </div>
+                      </button>
                     </div>
-                    <div className="text-center">
-                      <div className="text-[10px] text-gray-400 uppercase">Failure Rate</div>
-                      <div className="text-lg font-mono font-bold text-red-600">
-                        {securityMetrics.mfaStats.total > 0 ? ((securityMetrics.mfaStats.failure / securityMetrics.mfaStats.total) * 100).toFixed(1) : 0}%
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1195,7 +1210,11 @@ export default function App() {
                         .map(([req, stats]) => {
                           const s = stats as { success: number; failure: number };
                           return (
-                            <div key={req} className="group">
+                            <button 
+                              key={req} 
+                              onClick={() => setFilters(f => ({ ...f, search: req }))}
+                              className="w-full text-left group hover:bg-gray-50 p-1 -m-1 rounded transition-colors"
+                            >
                               <div className="flex justify-between text-[11px] mb-1">
                                 <span className="font-medium truncate max-w-[120px]" title={req}>{req}</span>
                                 <span className="font-mono text-gray-400">{s.success + s.failure}</span>
@@ -1204,7 +1223,7 @@ export default function App() {
                                 <div className="bg-emerald-500 h-full" style={{ width: `${(s.success / (s.success + s.failure || 1)) * 100}%` }}></div>
                                 <div className="bg-red-500 h-full" style={{ width: `${(s.failure / (s.success + s.failure || 1)) * 100}%` }}></div>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                     </div>
@@ -1256,7 +1275,11 @@ export default function App() {
                         .map(([ua, stats]) => {
                           const s = stats as { success: number; failure: number };
                           return (
-                            <div key={ua} className="group">
+                            <button 
+                              key={ua} 
+                              onClick={() => setFilters(f => ({ ...f, search: ua }))}
+                              className="w-full text-left group hover:bg-gray-50 p-1 -m-1 rounded transition-colors"
+                            >
                               <div className="flex justify-between text-[11px] mb-1">
                                 <span className="font-medium truncate max-w-[120px]" title={ua}>{ua}</span>
                                 <span className="font-mono text-gray-400">{s.success + s.failure}</span>
@@ -1265,7 +1288,7 @@ export default function App() {
                                 <div className="bg-emerald-500 h-full" style={{ width: `${(s.success / (s.success + s.failure || 1)) * 100}%` }}></div>
                                 <div className="bg-red-500 h-full" style={{ width: `${(s.failure / (s.success + s.failure || 1)) * 100}%` }}></div>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                     </div>
@@ -1633,7 +1656,7 @@ export default function App() {
                     </button>
                     <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest">
                       <div className="flex items-center gap-1"><div className="w-2 h-2 bg-purple-500"></div> User</div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 bg-blue-500"></div> Country</div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 bg-red-500"></div> Country</div>
                       <div className="flex items-center gap-1"><div className="w-2 h-2 bg-emerald-500"></div> App</div>
                     </div>
                   </div>
@@ -1715,7 +1738,7 @@ export default function App() {
                 <div className="text-sm font-bold">Users</div>
               </div>
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-1">Target</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-1">Target</div>
                 <div className="text-sm font-bold">Applications</div>
               </div>
               <div>

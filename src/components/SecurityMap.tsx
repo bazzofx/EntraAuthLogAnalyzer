@@ -88,7 +88,7 @@ export const SecurityMap: React.FC<SecurityMapProps> = ({ locations }) => {
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
-                    fill={isHighlighted ? "#002699" : "#171717"}
+                    fill={isHighlighted ? "#002699" : "#002db3"}
                     stroke={isHighlighted ? "#ef4444" : "#262626"}
                     strokeWidth={0.5}
                     style={{
