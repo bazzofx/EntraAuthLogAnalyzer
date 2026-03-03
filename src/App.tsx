@@ -527,11 +527,17 @@ export default function App() {
     // Temporal
     const rapidSequences: any[] = [];
     const bruteForce: any[] = [];
+    const passwordSpray: any[] = [];
     
     const userLogs: Record<string, AuthLog[]> = {};
+    const ipLogs: Record<string, AuthLog[]> = {};
+
     filteredLogs.forEach(log => {
       if (!userLogs[log.user]) userLogs[log.user] = [];
       userLogs[log.user].push(log);
+
+      if (!ipLogs[log.ipAddress]) ipLogs[log.ipAddress] = [];
+      ipLogs[log.ipAddress].push(log);
     });
 
     Object.entries(userLogs).forEach(([user, logs]) => {
@@ -554,6 +560,21 @@ export default function App() {
           bruteForce.push({ user, count: 11, time: failures[i].date });
           break;
         }
+      }
+    });
+
+    // Password Spray Detection
+    Object.entries(ipLogs).forEach(([ip, logs]) => {
+      const uniqueUsers = new Set(logs.map(l => l.user));
+      if (uniqueUsers.size >= 5) {
+        // Find the time range
+        const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+        passwordSpray.push({ 
+          ip, 
+          userCount: uniqueUsers.size, 
+          time: sorted[0].date,
+          users: Array.from(uniqueUsers).slice(0, 3)
+        });
       }
     });
 
@@ -611,6 +632,7 @@ export default function App() {
     return {
       rapidSequences,
       bruteForce,
+      passwordSpray,
       sharedIPs,
       deviceTypes: Object.entries(deviceTypes).map(([name, value]) => ({ name, value })),
       browserTypes: Object.entries(browserTypes).map(([name, value]) => ({ name, value })),
@@ -949,13 +971,52 @@ export default function App() {
                             )}
                           </div>
                         </div>
+
+                        <div className="mt-6">
+                          <div className="flex items-center gap-2 mb-4">
+                            <ShieldAlert className="text-purple-600" size={18} />
+                            <h4 className="text-xs font-bold uppercase tracking-widest">Password Spray Detection</h4>
+                          </div>
+                          <div className="space-y-3">
+                            {correlationMetrics?.passwordSpray.length === 0 ? (
+                              <p className="text-xs text-gray-400 italic">No password spray patterns detected.</p>
+                            ) : (
+                              correlationMetrics?.passwordSpray.slice(0, 5).map((ps, i) => (
+                                <div 
+                                  key={i} 
+                                  className="p-3 bg-purple-50 border-l-4 border-purple-600 flex justify-between items-center cursor-pointer hover:bg-purple-100 transition-colors group"
+                                  onClick={() => {
+                                    setFilters(f => ({ ...f, search: ps.ip, user: 'All' }));
+                                    setActiveTab('logs');
+                                  }}
+                                >
+                                  <div>
+                                    <div className="text-sm font-bold group-hover:text-purple-700">{ps.ip}</div>
+                                    <div className="text-[10px] text-purple-700">Targeted {ps.userCount} unique accounts</div>
+                                    <div className="text-[9px] text-gray-400 mt-1 italic">
+                                      e.g. {ps.users.join(', ')}...
+                                    </div>
+                                  </div>
+                                  <div className="text-[10px] font-mono text-gray-500 flex items-center gap-1">
+                                    {formatDate(ps.time)}
+                                    <ArrowRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="bg-gray-50 p-4 border border-black/5">
                         <h4 className="text-[10px] font-bold uppercase text-gray-400 mb-4">Temporal Correlation Insights</h4>
-                        <p className="text-xs text-gray-600 leading-relaxed">
+                        <p className="text-xs text-gray-600 leading-relaxed mb-4">
                           Analyzing login frequency and failure patterns to identify automated attacks. 
                           Rapid sequences often indicate script-based access, while brute force patterns 
                           suggest credential stuffing or password spraying attempts.
+                        </p>
+                        <p className="text-xs text-gray-600 leading-relaxed">
+                          <strong>Password Spraying:</strong> A technique where an attacker tries a common password against many accounts to avoid account lockouts. 
+                          Detected here when a single IP address targets multiple distinct usernames.
                         </p>
                       </div>
                     </div>
