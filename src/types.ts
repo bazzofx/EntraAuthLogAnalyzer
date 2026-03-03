@@ -1,37 +1,42 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 export interface AuthLog {
   date: string;
   requestId: string;
-  userAgent: string;
-  correlationId: string;
-  userId: string;
   user: string;
   username: string;
-  userType: string;
   application: string;
-  applicationId: string;
-  resource: string;
   ipAddress: string;
   location: string;
-  status: 'Success' | 'Failure' | string;
-  errorCode: string;
+  status: string;
   failureReason: string;
-  clientApp: string;
   browser: string;
   os: string;
   mfaResult: string;
-  mfaMethod: string;
+  authRequirement: string;
+  userAgent: string;
   latency: number;
-  conditionalAccess: string;
-  [key: string]: any; // Allow for other fields
+  [key: string]: any;
 }
 
-export interface FilterState {
+export interface Filters {
   search: string;
   status: string;
   user: string;
-  application: string;
-  dateRange: {
-    start: string;
-    end: string;
-  };
+  app: string;
 }
+
+export interface Stats {
+  total: number;
+  success: number;
+  failure: number;
+  uniqueUsers: number;
+  uniqueApps: number;
+  uniqueCountries: number;
+}
+
+export type TabType = 'dashboard' | 'logs' | 'flow' | 'security' | 'travel-detail' | 'app-detail' | 'hourly-detail';
+export type CorrelationTabType = 'temporal' | 'geographical' | 'infrastructure' | 'behavioral';
