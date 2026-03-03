@@ -918,7 +918,7 @@ export default function App() {
                 {hideFalsePositives ? <EyeOff size={18} /> : <Eye size={18} />}
                 <span className="ml-2 text-[10px] font-bold uppercase tracking-widest"
                  title="Only display impossible travel logs if successful logins on more than one country, and countries no on travelAlerts.tsx">
-                  {hideFalsePositives ? "Failed Logins Hidden" : "Hide Failed logins"}
+                  {hideFalsePositives ? "False Positives Hidden" : "Hide False logins"}
                 </span>
               </button>
             </div>
