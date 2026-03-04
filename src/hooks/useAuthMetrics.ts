@@ -6,6 +6,9 @@
 import { useMemo } from 'react';
 import { parseISO, differenceInMinutes } from 'date-fns';
 import { AuthLog } from '../types';
+import { isLocationException } from '../config/ExceptionUser';
+import { isUserException } from '../config/travelAlerts';
+import { isIPException } from '../config/NetworkExceptions';
 
 export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
   const stats = useMemo(() => {
@@ -19,6 +22,66 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
     return { total, success, failure, uniqueUsers, uniqueApps, uniqueCountries };
   }, [filteredLogs]);
 
+  const usersWithMultiCountrySuccess = useMemo(() => {
+    const userCountries: Record<string, Set<string>> = {};
+    filteredLogs.forEach(l => {
+      if (l.status === 'Success') {
+        const country = l.location.split(',').pop()?.trim() || 'Unknown';
+        if (!userCountries[l.user]) userCountries[l.user] = new Set();
+        userCountries[l.user].add(country);
+      }
+    });
+    return new Set(
+      Object.entries(userCountries)
+        .filter(([_, countries]) => countries.size > 1)
+        .map(([user]) => user)
+    );
+  }, [filteredLogs]);
+
+  const impossibleTravel = useMemo(() => {
+    const alerts: any[] = [];
+    const userLogs: Record<string, AuthLog[]> = {};
+    filteredLogs.forEach(log => {
+      if (!userLogs[log.user]) userLogs[log.user] = [];
+      userLogs[log.user].push(log);
+    });
+
+    Object.entries(userLogs).forEach(([user, logs]) => {
+      const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const l1 = sorted[i];
+        const l2 = sorted[i+1];
+        const t1 = parseISO(l1.date);
+        const t2 = parseISO(l2.date);
+        const diffMinutes = differenceInMinutes(t2, t1);
+        
+        const c1 = l1.location.split(',').pop()?.trim() || '';
+        const c2 = l2.location.split(',').pop()?.trim() || '';
+
+        // Check user-specific country exceptions
+        if (isUserException(user, c1) || isUserException(user, c2)) continue;
+
+        // Check location-pair exceptions
+        if (c1 && c2 && isLocationException(c1, c2)) continue;
+
+        if (c1 && c2 && c1 !== c2 && diffMinutes < 240) {
+          if (usersWithMultiCountrySuccess.has(user)) {
+            alerts.push({
+              id: `${user}-${i}`,
+              user,
+              loc1: l1.location,
+              loc2: l2.location,
+              timeDiff: `${diffMinutes} mins`,
+              reason: 'Speed Anomaly',
+              logs: [l1, l2]
+            });
+          }
+        }
+      }
+    });
+    return alerts;
+  }, [filteredLogs, usersWithMultiCountrySuccess]);
+
   const securityMetrics = useMemo(() => {
     if (filteredLogs.length === 0) return {
       highRiskIPs: [],
@@ -28,13 +91,14 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       mfaStats: { total: 0, success: 0, failure: 0 },
       mfaPatterns: { byRequirement: {}, byApp: {}, byUA: {}, byResult: {} },
       impossibleTravel: [],
-      newEntityAlerts: []
+      newEntityAlerts: [],
+      powershellSignins: []
     };
 
     // High Risk IPs
     const ipFailures: Record<string, { count: number, users: Set<string> }> = {};
     filteredLogs.forEach(log => {
-      if (log.status !== 'Success') {
+      if (log.status !== 'Success' && !isIPException(log.ipAddress)) {
         if (!ipFailures[log.ipAddress]) ipFailures[log.ipAddress] = { count: 0, users: new Set() };
         ipFailures[log.ipAddress].count++;
         ipFailures[log.ipAddress].users.add(log.user);
@@ -139,40 +203,6 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       .sort((a, b) => a.value - b.value)
       .slice(0, 5);
 
-    // Impossible Travel
-    const impossibleTravel: any[] = [];
-    const userLogs: Record<string, AuthLog[]> = {};
-    filteredLogs.forEach(log => {
-      if (!userLogs[log.user]) userLogs[log.user] = [];
-      userLogs[log.user].push(log);
-    });
-
-    Object.entries(userLogs).forEach(([user, logs]) => {
-      const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const l1 = sorted[i];
-        const l2 = sorted[i+1];
-        const t1 = parseISO(l1.date);
-        const t2 = parseISO(l2.date);
-        const diffMinutes = differenceInMinutes(t2, t1);
-        
-        const c1 = l1.location.split(',').pop()?.trim();
-        const c2 = l2.location.split(',').pop()?.trim();
-
-        if (c1 && c2 && c1 !== c2 && diffMinutes < 240) {
-          impossibleTravel.push({
-            id: `${user}-${i}`,
-            user,
-            loc1: l1.location,
-            loc2: l2.location,
-            timeDiff: `${diffMinutes} mins`,
-            reason: 'Speed Anomaly',
-            logs: [l1, l2]
-          });
-        }
-      }
-    });
-
     // New Entity Alerting
     const newEntityAlerts: any[] = [];
     const userHistory: Record<string, { ips: Set<string>, countries: Set<string> }> = {};
@@ -203,6 +233,18 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       if (country) userHistory[log.user].countries.add(country);
     });
 
+    // Azure AD PowerShell Monitoring
+    const powershellSignins = filteredLogs.filter(log => 
+      log.status === 'Success' && 
+      log.application.toLowerCase().includes('azure active directory powershell')
+    ).map(log => ({
+      id: log.requestId,
+      user: log.user,
+      date: log.date,
+      ip: log.ipAddress,
+      location: log.location
+    }));
+
     return { 
       highRiskIPs, 
       highRiskUsers, 
@@ -211,14 +253,14 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       mfaStats, 
       mfaPatterns, 
       impossibleTravel,
+      powershellSignins,
       newEntityAlerts: newEntityAlerts.reverse().slice(0, 20)
     };
-  }, [filteredLogs]);
+  }, [filteredLogs, impossibleTravel]);
 
   const correlationMetrics = useMemo(() => {
     if (filteredLogs.length === 0) return null;
 
-    // Temporal
     const rapidSequences: any[] = [];
     const bruteForce: any[] = [];
     const passwordSpray: any[] = [];
@@ -234,6 +276,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       ipLogs[log.ipAddress].push(log);
     });
 
+    // Temporal
     Object.entries(userLogs).forEach(([user, logs]) => {
       const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
       
@@ -246,19 +289,37 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
         }
       }
 
-      const failures = sorted.filter(l => l.status !== 'Success');
-      for (let i = 0; i < failures.length - 10; i++) {
-        const start = parseISO(failures[i].date);
-        const end = parseISO(failures[i+10].date);
-        if (end.getTime() - start.getTime() < 300000) {
-          bruteForce.push({ user, count: 11, time: failures[i].date });
-          break;
+      let consecutiveFailures = 0;
+      let firstFailureTime: Date | null = null;
+
+      for (let i = 0; i < sorted.length; i++) {
+        const log = sorted[i];
+        if (log.status !== 'Success') {
+          if (consecutiveFailures === 0) firstFailureTime = parseISO(log.date);
+          consecutiveFailures++;
+        } else {
+          // Success login
+          if (consecutiveFailures >= 5 && firstFailureTime) {
+            const successTime = parseISO(log.date);
+            // If the sequence happened within 10 minutes
+            if (successTime.getTime() - firstFailureTime.getTime() < 600000) {
+              bruteForce.push({ 
+                user, 
+                count: consecutiveFailures, 
+                time: log.date 
+              });
+            }
+          }
+          // Reset after a success or if threshold not met
+          consecutiveFailures = 0;
+          firstFailureTime = null;
         }
       }
     });
 
     // Password Spray Detection
     Object.entries(ipLogs).forEach(([ip, logs]) => {
+      if (isIPException(ip)) return;
       const uniqueUsers = new Set(logs.map(l => l.user));
       if (uniqueUsers.size >= 5) {
         const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
@@ -278,6 +339,9 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
     const suspiciousIPs: Record<string, number> = {};
 
     filteredLogs.forEach(log => {
+      // Skip IP exceptions
+      if (isIPException(log.ipAddress)) return;
+
       if (!ipToUsers[log.ipAddress]) ipToUsers[log.ipAddress] = new Set();
       ipToUsers[log.ipAddress].add(log.user);
 
@@ -311,6 +375,12 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
 
     // Geographical
     const countryTransitions: any[] = [];
+    const uniqueImpossibleUsers = new Set<string>();
+    
+    impossibleTravel.forEach(alert => {
+      uniqueImpossibleUsers.add(alert.user);
+    });
+
     Object.entries(userLogs).forEach(([user, logs]) => {
       const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
       for (let i = 0; i < sorted.length - 1; i++) {
@@ -332,11 +402,12 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       topSuspiciousIPs,
       privilegeEscalation: privilegeEscalation.slice(0, 15),
       countryTransitions: countryTransitions.slice(0, 15),
+      uniqueImpossibleUsers: Array.from(uniqueImpossibleUsers),
       uniqueIPs: Object.keys(ipToUsers).length,
       deviceCount: Object.keys(deviceTypes).length,
       browserCount: Object.keys(browserTypes).length
     };
-  }, [filteredLogs]);
+  }, [filteredLogs, impossibleTravel]);
 
   const locationDistribution = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -380,22 +451,6 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
   const uniqueAppsList = useMemo(() => Array.from(new Set(filteredLogs.map(l => l.application))).sort(), [filteredLogs]);
   const uniqueCountries = useMemo(() => Array.from(new Set(filteredLogs.map(l => l.location.split(',').pop()?.trim() || 'Unknown'))).sort(), [filteredLogs]);
 
-  const usersWithMultiCountrySuccess = useMemo(() => {
-    const userCountries: Record<string, Set<string>> = {};
-    filteredLogs.forEach(l => {
-      if (l.status === 'Success') {
-        const country = l.location.split(',').pop()?.trim() || 'Unknown';
-        if (!userCountries[l.user]) userCountries[l.user] = new Set();
-        userCountries[l.user].add(country);
-      }
-    });
-    return new Set(
-      Object.entries(userCountries)
-        .filter(([_, countries]) => countries.size > 1)
-        .map(([user]) => user)
-    );
-  }, [filteredLogs]);
-
   return { 
     stats, 
     securityMetrics, 
@@ -406,6 +461,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
     uniqueUsersList,
     uniqueAppsList,
     uniqueCountries,
-    usersWithMultiCountrySuccess
+    usersWithMultiCountrySuccess,
+    impossibleTravel
   };
 };

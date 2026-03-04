@@ -12,6 +12,7 @@ import { RareUserAgents } from './RareUserAgents';
 import { NewEntityFlagging } from './NewEntityFlagging';
 import { BrowserOSIntegrity } from './BrowserOSIntegrity';
 import { MFAPatternAnalysis } from './MFAPatternAnalysis';
+import { AzureADPowerShellMonitor } from './AzureADPowerShellMonitor';
 import { TabType, Filters } from '../../types';
 
 interface SecurityInsightsProps {
@@ -73,6 +74,14 @@ export const SecurityInsights: React.FC<SecurityInsightsProps> = ({
             setFilters={setFilters} 
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <AzureADPowerShellMonitor 
+          powershellSignins={securityMetrics.powershellSignins || []} 
+          setFilters={setFilters} 
+          setActiveTab={setActiveTab} 
+        />
       </div>
     </div>
   );

@@ -109,7 +109,7 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                       >
                         <div>
                           <div className="text-sm font-bold group-hover:text-red-700">{bf.user}</div>
-                          <div className="text-[10px] text-red-700">{bf.count} failures in &lt; 5 mins</div>
+                          <div className="text-[10px] text-red-700">{bf.count} failures followed by success</div>
                         </div>
                         <div className="text-[10px] font-mono text-gray-500 flex items-center gap-1">
                           {formatDate(bf.time)}
@@ -174,30 +174,41 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
         {activeCorrelationTab === 'geographical' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Globe className="text-blue-500" size={18} />
-                <h4 className="text-xs font-bold uppercase tracking-widest">Impossible Travel Incidents</h4>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Globe className="text-blue-500" size={18} />
+                  <h4 className="text-xs font-bold uppercase tracking-widest">Impossible Travel Incidents</h4>
+                </div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                  {correlationMetrics.uniqueImpossibleUsers.length} Unique Users
+                </span>
               </div>
               <div className="space-y-3">
-                {securityMetrics.impossibleTravel.length === 0 ? (
+                {correlationMetrics.uniqueImpossibleUsers.length === 0 ? (
                   <p className="text-xs text-gray-400 italic">No impossible travel incidents.</p>
                 ) : (
-                  securityMetrics.impossibleTravel.slice(0, 5).map((alert: any, i: number) => (
-                    <div 
-                      key={i} 
-                      className="p-3 bg-red-50 border-l-4 border-red-500 cursor-pointer hover:bg-red-100 transition-colors group"
-                      onClick={() => handleTravelAlertClick(alert)}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="text-sm font-bold group-hover:text-red-700">{alert.user}</div>
-                        <div className="text-[10px] font-bold text-red-700 uppercase">{alert.reason}</div>
+                  correlationMetrics.uniqueImpossibleUsers.slice(0, 10).map((user: string, i: number) => {
+                    const userAlerts = securityMetrics.impossibleTravel.filter((a: any) => a.user === user);
+                    return (
+                      <div 
+                        key={i} 
+                        className="p-3 bg-red-50 border-l-4 border-red-500 cursor-pointer hover:bg-red-100 transition-colors group"
+                        onClick={() => {
+                          setFilters(f => ({ ...f, user, search: '' }));
+                          setActiveTab('logs');
+                        }}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="text-sm font-bold group-hover:text-red-700">{user}</div>
+                          <div className="text-[10px] font-bold text-red-700 uppercase">{userAlerts.length} Alerts</div>
+                        </div>
+                        <div className="text-[10px] text-gray-600 truncate flex items-center justify-between">
+                          <span>Recent: {userAlerts[0]?.loc1} → {userAlerts[0]?.loc2}</span>
+                          <ArrowRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-600 truncate flex items-center justify-between">
-                        <span>{alert.loc1} → {alert.loc2}</span>
-                        <ArrowRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -256,8 +267,11 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Share2 size={14} /> Network Infrastructure Analysis
+                <h4 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Share2 size={14} /> Network Infrastructure Analysis
+                  </div>
+                  <span className="text-[9px] text-gray-400 italic font-normal">Excluding Exception IPs</span>
                 </h4>
                 <div className="space-y-2">
                   {correlationMetrics.sharedIPs.slice(0, 5).map((item: any, i: number) => (

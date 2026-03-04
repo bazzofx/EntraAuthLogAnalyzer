@@ -1,5 +1,5 @@
 {
-  "name": "Entra AuthLog Analyzer",
+  "name": "Entra Auth Log Analyzer",
   "description": "A professional tool for analyzing and visualizing authentication logs from CSV files, featuring correlation maps and flow analysis.",
   "requestFramePermissions": []
 }

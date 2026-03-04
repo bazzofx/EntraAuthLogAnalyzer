@@ -1,5 +1,5 @@
 {
-  "name": "entra-log-analyzer",
+  "name": "react-example",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/d3": "^7.4.3",
     "@types/d3-sankey": "^0.12.5",
@@ -28,7 +29,7 @@
     "papaparse": "^5.5.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-simple-maps": "^1.0.0",
+    "react-simple-maps": "^3.0.0",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
     "topojson-client": "^3.1.0",

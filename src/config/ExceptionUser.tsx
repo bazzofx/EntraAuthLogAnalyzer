@@ -1,22 +1,22 @@
 /**
- * Configuration for User-specific Impossible Travel Exceptions
- * Add users and country codes here that should be ignored for impossible travel alerts.
+ * Configuration for Location-specific Impossible Travel Exceptions
+ * Add pairs of country codes here that should be ignored for impossible travel alerts.
+ * For example: ['IN', 'GB'] will ignore travel between India and Great Britain.
  */
 
-export interface UserException {
-  user: string;
-  countryCode: string;
-}
-
-export const USER_EXCEPTIONS: UserException[] = [
-  { user: 'Gita Benayahu', countryCode: 'IL' },
+export const LOCATION_EXCEPTIONS: [string, string][] = [
+  ['IN', 'GB'],
+  ['GB', 'IE'],
+  ['GB', 'AU'],
+  
 ];
 
 /**
- * Helper to check if a user's activity in a specific country should be ignored
+ * Helper to check if travel between two countries should be ignored
  */
-export const isUserException = (user: string, countryCode: string): boolean => {
-  return USER_EXCEPTIONS.some(ex => 
-    ex.user === user && ex.countryCode === countryCode.toUpperCase()
+export const isLocationException = (countryA: string, countryB: string): boolean => {
+  return LOCATION_EXCEPTIONS.some(pair => 
+    (pair[0].toUpperCase() === countryA.toUpperCase() && pair[1].toUpperCase() === countryB.toUpperCase()) || 
+    (pair[0].toUpperCase() === countryB.toUpperCase() && pair[1].toUpperCase() === countryA.toUpperCase())
   );
 };

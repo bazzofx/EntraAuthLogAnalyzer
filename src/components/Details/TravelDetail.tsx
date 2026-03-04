@@ -116,6 +116,7 @@ export const TravelDetail: React.FC<TravelDetailProps> = ({ setActiveTab, select
                     <th className="p-3 font-medium">IP Address</th>
                     <th className="p-3 font-medium">Application</th>
                     <th className="p-3 font-medium">Status</th>
+                    <th className="p-3 font-medium text-right">Browser/OS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/10">
@@ -133,6 +134,7 @@ export const TravelDetail: React.FC<TravelDetailProps> = ({ setActiveTab, select
                           {log.status}
                         </span>
                       </td>
+                      <td className="p-3 text-[11px] text-gray-400 text-right">{log.browser} / {log.os}</td>
                     </tr>
                   ))}
                 </tbody>
