@@ -17,6 +17,7 @@ interface AdvancedCorrelationProps {
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   setActiveTab: (tab: TabType) => void;
   handleTravelAlertClick: (alert: any) => void;
+  setSelectedUser: (user: string | null) => void;
 }
 
 export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
@@ -26,7 +27,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
   securityMetrics,
   setFilters,
   setActiveTab,
-  handleTravelAlertClick
+  handleTravelAlertClick,
+  setSelectedUser
 }) => {
   if (!correlationMetrics) return null;
 
@@ -73,8 +75,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                       key={i} 
                       className="p-3 bg-orange-50 border-l-4 border-orange-500 flex justify-between items-center cursor-pointer hover:bg-orange-100 transition-colors group"
                       onClick={() => {
-                        setFilters(f => ({ ...f, user: seq.user, search: '' }));
-                        setActiveTab('logs');
+                        setSelectedUser(seq.user);
+                        setActiveTab('user-detail');
                       }}
                     >
                       <div>
@@ -103,8 +105,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                         key={i} 
                         className="p-3 bg-red-50 border-l-4 border-red-500 flex justify-between items-center cursor-pointer hover:bg-red-100 transition-colors group"
                         onClick={() => {
-                          setFilters(f => ({ ...f, user: bf.user, search: '' }));
-                          setActiveTab('logs');
+                          setSelectedUser(bf.user);
+                          setActiveTab('user-detail');
                         }}
                       >
                         <div>
@@ -194,8 +196,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                         key={i} 
                         className="p-3 bg-red-50 border-l-4 border-red-500 cursor-pointer hover:bg-red-100 transition-colors group"
                         onClick={() => {
-                          setFilters(f => ({ ...f, user, search: '' }));
-                          setActiveTab('logs');
+                          setSelectedUser(user);
+                          setActiveTab('user-detail');
                         }}
                       >
                         <div className="flex justify-between items-start mb-1">
@@ -226,8 +228,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                       key={i} 
                       className="p-3 bg-purple-50 border-l-4 border-purple-500 flex justify-between items-center cursor-pointer hover:bg-purple-100 transition-colors group"
                       onClick={() => {
-                        setFilters(f => ({ ...f, user: trans.user, search: '' }));
-                        setActiveTab('logs');
+                        setSelectedUser(trans.user);
+                        setActiveTab('user-detail');
                       }}
                     >
                       <div>
@@ -363,8 +365,8 @@ export const AdvancedCorrelation: React.FC<AdvancedCorrelationProps> = ({
                       key={i} 
                       className="p-3 bg-emerald-50 border-l-4 border-emerald-500 flex justify-between items-center cursor-pointer hover:bg-emerald-100 transition-colors group"
                       onClick={() => {
-                        setFilters(f => ({ ...f, user: log.user, app: log.application, search: '' }));
-                        setActiveTab('logs');
+                        setSelectedUser(log.user);
+                        setActiveTab('user-detail');
                       }}
                     >
                       <div>

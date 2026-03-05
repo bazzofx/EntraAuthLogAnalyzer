@@ -23,6 +23,8 @@ interface DashboardProps {
   locationDistribution: { name: string, value: number }[];
   locationSuccessFailure: any[];
   topApps: any[];
+  setFlowCountryFilter: (cc: string | null) => void;
+  setSelectedUser: (user: string | null) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -36,11 +38,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   handleTravelAlertClick,
   locationDistribution,
   locationSuccessFailure,
-  topApps
+  topApps,
+  setFlowCountryFilter,
+  setSelectedUser
 }) => {
   return (
     <div className="space-y-8">
-      <StatsGrid stats={stats} setActiveTab={setActiveTab} />
+      <StatsGrid stats={stats} setActiveTab={setActiveTab} setFilters={setFilters} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <AdvancedCorrelation 
@@ -51,11 +55,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
           setFilters={setFilters}
           setActiveTab={setActiveTab}
           handleTravelAlertClick={handleTravelAlertClick}
+          setSelectedUser={setSelectedUser}
         />
 
         <div className="space-y-8">
-          <LocationDistribution data={locationDistribution} />
-          <SuccessFailureByLocation data={locationSuccessFailure} />
+          <LocationDistribution 
+            data={locationDistribution} 
+            onCountryClick={(country) => {
+              setFlowCountryFilter(country === 'Unknown' ? null : country);
+              setActiveTab('flow');
+            }}
+          />
+          <SuccessFailureByLocation 
+            data={locationSuccessFailure} 
+            onCountryClick={(country) => {
+              setFlowCountryFilter(country === 'Unknown' ? null : country);
+              setActiveTab('flow');
+            }}
+          />
         </div>
       </div>
 

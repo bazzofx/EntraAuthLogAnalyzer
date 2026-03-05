@@ -14,6 +14,7 @@ import { Dashboard } from './components/Dashboard/Dashboard';
 import { SecurityInsights } from './components/Security/SecurityInsights';
 import { RawLogsTable } from './components/RawLogsTable';
 import { AuthFlowMap } from './components/AuthFlowMap';
+import { UserDetail } from './components/Details/UserDetail';
 import { AppDetail } from './components/Details/AppDetail';
 import { TravelDetail } from './components/Details/TravelDetail';
 import { HourlyDetail } from './components/Details/HourlyDetail';
@@ -28,6 +29,7 @@ export default function App() {
   const [selectedTravelAlert, setSelectedTravelAlert] = useState<any>(null);
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [flowCountryFilter, setFlowCountryFilter] = useState<string | null>(null);
   const [hideFalsePositives, setHideFalsePositives] = useState(false);
   const [impossibleTravelFilter, setImpossibleTravelFilter] = useState(false);
@@ -47,6 +49,7 @@ export default function App() {
     });
     setFlowCountryFilter(null);
     setSelectedApp(null);
+    setSelectedUser(null);
   }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +120,7 @@ export default function App() {
     uniqueAppsList,
     uniqueCountries,
     usersWithMultiCountrySuccess
-  } = useAuthMetrics(filteredLogs);
+  } = useAuthMetrics(filteredLogs, logs);
 
   const handleTravelAlertClick = (alert: any) => {
     setSelectedTravelAlert(alert);
@@ -170,6 +173,8 @@ export default function App() {
                 locationDistribution={locationDistribution}
                 locationSuccessFailure={locationSuccessFailure}
                 topApps={topApps}
+                setFlowCountryFilter={setFlowCountryFilter}
+                setSelectedUser={setSelectedUser}
               />
             ) : activeTab === 'security' ? (
               <SecurityInsights 
@@ -184,6 +189,10 @@ export default function App() {
                 logs={filteredLogs}
                 hideFalsePositives={hideFalsePositives}
                 setHideFalsePositives={setHideFalsePositives}
+                onUserClick={(user) => {
+                  setSelectedUser(user);
+                  setActiveTab('user-detail');
+                }}
               />
             ) : activeTab === 'flow' ? (
               <AuthFlowMap 
@@ -199,6 +208,15 @@ export default function App() {
                 setSelectedApp={setSelectedApp}
                 uniqueAppsList={uniqueAppsList}
                 filteredLogs={filteredLogs}
+              />
+            ) : activeTab === 'user-detail' ? (
+              <UserDetail 
+                setActiveTab={setActiveTab}
+                selectedUser={selectedUser}
+                setSelectedUser={setSelectedUser}
+                uniqueUsersList={uniqueUsersList}
+                allLogs={logs}
+                securityMetrics={securityMetrics}
               />
             ) : activeTab === 'travel-detail' ? (
               <TravelDetail 

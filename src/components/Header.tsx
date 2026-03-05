@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Shield, LayoutDashboard, Share2, List, Upload, RotateCcw } from 'lucide-react';
+import { Shield, LayoutDashboard, Share2, List, Upload, RotateCcw, User } from 'lucide-react';
 import { cn } from '../utils/formatters';
 import { TabType } from '../types';
 
@@ -37,6 +37,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFi
             >
               <LayoutDashboard size={16} />
               Dashboard
+            </button>
+            <button 
+              onClick={() => setActiveTab('user-detail')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-2",
+                activeTab === 'user-detail' ? "bg-white border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "hover:bg-white/50"
+              )}
+            >
+              <User size={16} />
+              User Profile
             </button>
             <button 
               onClick={() => setActiveTab('flow')}

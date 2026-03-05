@@ -95,7 +95,19 @@ export const SankeyFlow: React.FC<SankeyFlowProps> = ({
       .data(links)
       .join('path')
       .attr('d', sankeyLinkHorizontal())
-      .attr('stroke', d => d.target.name === 'Success' ? '#10b981' : '#ef4444')
+      .attr('stroke', d => {
+        const targetName = d.target.name;
+        const targetCategory = d.target.category?.toLowerCase();
+        
+        if (targetCategory === 'status') {
+          return targetName === 'Success' ? '#10b981' : '#ef4444';
+        }
+        
+        if (targetName === 'Success') return '#10b981';
+        if (targetName === 'Failure' || targetName === 'Failed') return '#ef4444';
+        
+        return '#cbd5e1'; // Neutral for intermediate links
+      })
       .attr('stroke-width', d => Math.max(1, d.width));
 
     // Nodes
@@ -110,9 +122,17 @@ export const SankeyFlow: React.FC<SankeyFlowProps> = ({
       .attr('height', d => d.y1 - d.y0)
       .attr('width', d => d.x1 - d.x0)
       .attr('fill', d => {
-        if (d.category === 'user') return '#8b5cf6';
-        if (d.category === 'app') return '#3b82f6';
-        return d.name === 'Success' ? '#10b981' : '#ef4444';
+        const category = d.category?.toLowerCase();
+        if (category === 'user') return '#8b5cf6'; // Purple
+        if (category === 'country' || category === 'location') return '#3b82f6'; // Blue
+        if (category === 'app' || category === 'application') return '#0ea5e9'; // Sky Blue
+        if (category === 'status') return d.name === 'Success' ? '#10b981' : '#ef4444';
+        
+        // Fallback for status nodes if category isn't explicitly 'status'
+        if (d.name === 'Success') return '#10b981';
+        if (d.name === 'Failure' || d.name === 'Failed') return '#ef4444';
+        
+        return '#94a3b8'; // Default slate gray
       })
       .attr('stroke', '#000');
 

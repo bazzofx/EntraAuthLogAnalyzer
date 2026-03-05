@@ -10,7 +10,9 @@ import { isLocationException } from '../config/ExceptionUser';
 import { isUserException } from '../config/travelAlerts';
 import { isIPException } from '../config/NetworkExceptions';
 
-export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
+export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = []) => {
+  const logsForLists = allLogs.length > 0 ? allLogs : filteredLogs;
+
   const stats = useMemo(() => {
     const total = filteredLogs.length;
     const success = filteredLogs.filter(l => l.status === 'Success').length;
@@ -245,6 +247,33 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       location: log.location
     }));
 
+    // High Risk App Monitoring
+    const highRiskApps = [
+      'Microsoft Azure CLI',
+      'Azure Active Directory PowerShell',
+      'Azure Resource Manager',
+      'Microsoft Graph',
+      'Power Platform API'
+    ];
+
+    const highRiskAppSignins = highRiskApps.map(appName => {
+      const appLogs = filteredLogs.filter(log => 
+        log.status === 'Success' && 
+        log.application.toLowerCase().includes(appName.toLowerCase())
+      );
+      return {
+        name: appName,
+        count: appLogs.length,
+        latestSignins: appLogs.slice(0, 5).map(log => ({
+          id: log.requestId,
+          user: log.user,
+          date: log.date,
+          ip: log.ipAddress,
+          location: log.location
+        }))
+      };
+    });
+
     return { 
       highRiskIPs, 
       highRiskUsers, 
@@ -254,6 +283,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       mfaPatterns, 
       impossibleTravel,
       powershellSignins,
+      highRiskAppSignins,
       newEntityAlerts: newEntityAlerts.reverse().slice(0, 20)
     };
   }, [filteredLogs, impossibleTravel]);
@@ -447,9 +477,9 @@ export const useAuthMetrics = (filteredLogs: AuthLog[]) => {
       .map(([name, count]) => ({ name, count }));
   }, [filteredLogs]);
 
-  const uniqueUsersList = useMemo(() => Array.from(new Set(filteredLogs.map(l => l.user))).sort(), [filteredLogs]);
-  const uniqueAppsList = useMemo(() => Array.from(new Set(filteredLogs.map(l => l.application))).sort(), [filteredLogs]);
-  const uniqueCountries = useMemo(() => Array.from(new Set(filteredLogs.map(l => l.location.split(',').pop()?.trim() || 'Unknown'))).sort(), [filteredLogs]);
+  const uniqueUsersList = useMemo(() => Array.from(new Set(logsForLists.map(l => l.user))).sort(), [logsForLists]);
+  const uniqueAppsList = useMemo(() => Array.from(new Set(logsForLists.map(l => l.application))).sort(), [logsForLists]);
+  const uniqueCountries = useMemo(() => Array.from(new Set(logsForLists.map(l => l.location.split(',').pop()?.trim() || 'Unknown'))).sort(), [logsForLists]);
 
   return { 
     stats, 

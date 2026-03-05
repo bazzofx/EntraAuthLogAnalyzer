@@ -12,9 +12,10 @@ interface RawLogsTableProps {
   logs: AuthLog[];
   hideFalsePositives: boolean;
   setHideFalsePositives: (hide: boolean) => void;
+  onUserClick: (user: string) => void;
 }
 
-export const RawLogsTable: React.FC<RawLogsTableProps> = ({ logs, hideFalsePositives, setHideFalsePositives }) => {
+export const RawLogsTable: React.FC<RawLogsTableProps> = ({ logs, hideFalsePositives, setHideFalsePositives, onUserClick }) => {
   return (
     <div className="bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
       <div className="p-4 border-b border-black bg-gray-50 flex justify-between items-center">
@@ -50,7 +51,14 @@ export const RawLogsTable: React.FC<RawLogsTableProps> = ({ logs, hideFalsePosit
             {logs.map((log, i) => (
               <tr key={i} className="hover:bg-gray-50 transition-colors">
                 <td className="p-3 text-[11px] font-mono">{formatDate(log.date)}</td>
-                <td className="p-3 text-[11px] font-bold">{log.user}</td>
+                <td className="p-3 text-[11px] font-bold">
+                  <button 
+                    onClick={() => onUserClick(log.user)}
+                    className="hover:underline text-left"
+                  >
+                    {log.user}
+                  </button>
+                </td>
                 <td className="p-3 text-[11px]">{log.application}</td>
                 <td className="p-3 text-[11px]">{log.location}</td>
                 <td className="p-3">
