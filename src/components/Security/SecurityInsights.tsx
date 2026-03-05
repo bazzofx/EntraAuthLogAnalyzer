@@ -13,6 +13,7 @@ import { NewEntityFlagging } from './NewEntityFlagging';
 import { BrowserOSIntegrity } from './BrowserOSIntegrity';
 import { MFAPatternAnalysis } from './MFAPatternAnalysis';
 import { HighRiskAppMonitor } from './HighRiskAppMonitor';
+import { AuthAnomaly } from './AuthAnomaly';
 import { TabType, Filters } from '../../types';
 
 interface SecurityInsightsProps {
@@ -21,6 +22,7 @@ interface SecurityInsightsProps {
   setSelectedHour: (hour: number | null) => void;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   handleTravelAlertClick: (alert: any) => void;
+  setSelectedAnomaly: (anomaly: any) => void;
 }
 
 export const SecurityInsights: React.FC<SecurityInsightsProps> = ({
@@ -28,7 +30,8 @@ export const SecurityInsights: React.FC<SecurityInsightsProps> = ({
   setActiveTab,
   setSelectedHour,
   setFilters,
-  handleTravelAlertClick
+  handleTravelAlertClick,
+  setSelectedAnomaly
 }) => {
   return (
     <div className="space-y-8">
@@ -47,6 +50,14 @@ export const SecurityInsights: React.FC<SecurityInsightsProps> = ({
         highRiskAppSignins={securityMetrics.highRiskAppSignins || []}
         setFilters={setFilters}
         setActiveTab={setActiveTab}
+      />
+
+      <AuthAnomaly 
+        authAnomalies={securityMetrics.authAnomalies || []}
+        tieredStats={securityMetrics.tieredStats || { tier1: 0, admin: 0, tier2: 0, tier3: 0 }}
+        setFilters={setFilters}
+        setActiveTab={setActiveTab}
+        setSelectedAnomaly={setSelectedAnomaly}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

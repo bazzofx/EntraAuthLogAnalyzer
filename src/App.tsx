@@ -18,6 +18,7 @@ import { UserDetail } from './components/Details/UserDetail';
 import { AppDetail } from './components/Details/AppDetail';
 import { TravelDetail } from './components/Details/TravelDetail';
 import { HourlyDetail } from './components/Details/HourlyDetail';
+import { AnomalyDetail } from './components/Security/AnomalyDetail';
 import { useAuthMetrics } from './hooks/useAuthMetrics';
 import { AuthLog, Filters, TabType, CorrelationTabType } from './types';
 
@@ -30,6 +31,7 @@ export default function App() {
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedAnomaly, setSelectedAnomaly] = useState<any>(null);
   const [flowCountryFilter, setFlowCountryFilter] = useState<string | null>(null);
   const [hideFalsePositives, setHideFalsePositives] = useState(false);
   const [impossibleTravelFilter, setImpossibleTravelFilter] = useState(false);
@@ -183,6 +185,12 @@ export default function App() {
                 setSelectedHour={setSelectedHour}
                 setFilters={setFilters}
                 handleTravelAlertClick={handleTravelAlertClick}
+                setSelectedAnomaly={setSelectedAnomaly}
+              />
+            ) : activeTab === 'anomaly-detail' ? (
+              <AnomalyDetail 
+                setActiveTab={setActiveTab}
+                selectedAnomaly={selectedAnomaly}
               />
             ) : activeTab === 'logs' ? (
               <RawLogsTable 

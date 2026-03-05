@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { parseISO, differenceInMinutes } from 'date-fns';
 import { AuthLog } from '../types';
-import { isLocationException } from '../config/ExceptionUser';
+import { isLocationException, isTrustedCountry } from '../config/ExceptionUser';
 import { isUserException } from '../config/travelAlerts';
 import { isIPException } from '../config/NetworkExceptions';
 
@@ -40,16 +40,21 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     );
   }, [filteredLogs]);
 
+  const userLogs = useMemo<Record<string, AuthLog[]>>(() => {
+    const groups: Record<string, AuthLog[]> = {};
+    filteredLogs.forEach(log => {
+      if (!groups[log.user]) groups[log.user] = [];
+      groups[log.user].push(log);
+    });
+    return groups;
+  }, [filteredLogs]);
+
   const impossibleTravel = useMemo(() => {
     const alerts: any[] = [];
-    const userLogs: Record<string, AuthLog[]> = {};
-    filteredLogs.forEach(log => {
-      if (!userLogs[log.user]) userLogs[log.user] = [];
-      userLogs[log.user].push(log);
-    });
 
     Object.entries(userLogs).forEach(([user, logs]) => {
-      const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+      const typedLogs = logs as AuthLog[];
+      const sorted = [...typedLogs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
       for (let i = 0; i < sorted.length - 1; i++) {
         const l1 = sorted[i];
         const l2 = sorted[i+1];
@@ -274,6 +279,86 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       };
     });
 
+    // Auth Anomaly Detections
+    const authAnomalies: any[] = [];
+    const cliApps = ['Microsoft Azure CLI', 'Azure Active Directory PowerShell', 'Azure Resource Manager', 'Microsoft Graph', 'Power Platform API'];
+    const webApps = ['Office 365 Exchange Online', 'SharePoint Online Web Client Extensibility', 'Office Online Core SSO', 'Microsoft Teams Web Client', 'One Outlook Web', 'Outlook Web'];
+    const adminApps = ['Azure Portal', 'Microsoft 365 Admin portal', 'Exchange Admin Center', 'Microsoft App Access Panel', 'My Apps'];
+    const coreApps = ['Windows Sign In', 'Windows Azure Active Directory', 'Microsoft Authentication Broker', 'Microsoft Authenticator App', 'Device Registration Service', 'Microsoft Device Registration Client'];
+    const vpnApps = ['Cisco AnyConnect', 'GlobalProtect', 'Azure VPN', 'F5 BigIP SSLVPN', 'Zscaler', 'ZPA', 'Remote Desktop Services'];
+
+    // 1. CLI Login After Web Login
+    Object.entries(userLogs).forEach(([user, logs]) => {
+      const typedLogs = logs as AuthLog[];
+      const sorted = [...typedLogs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const l1 = sorted[i];
+        const l2 = sorted[i+1];
+        
+        const isWeb = webApps.some(app => l1.application.toLowerCase().includes(app.toLowerCase()));
+        const isCLI = cliApps.some(app => l2.application.toLowerCase().includes(app.toLowerCase()));
+        const country2 = l2.location.split(',').pop()?.trim() || '';
+        
+        if (isWeb && isCLI && !isTrustedCountry(country2)) {
+          const t1 = parseISO(l1.date);
+          const t2 = parseISO(l2.date);
+          const diff = differenceInMinutes(t2, t1);
+          
+          if (diff >= 0 && diff < 60) {
+            authAnomalies.push({
+              type: 'CLI_AFTER_WEB',
+              severity: 'CRITICAL',
+              user,
+              details: `CLI access (${l2.application}) ${diff}m after Web access (${l1.application})`,
+              logs: [l1, l2],
+              date: l2.date
+            });
+          }
+        }
+      }
+    });
+
+    // 2. Same App / Multiple Countries
+    const userAppCountries: Record<string, Record<string, { countries: Set<string>, logs: AuthLog[] }>> = {};
+    filteredLogs.forEach(log => {
+      if (log.status !== 'Success') return;
+      const country = log.location.split(',').pop()?.trim() || 'Unknown';
+      if (isTrustedCountry(country)) return; // Only count success access from countries outside the exception
+
+      if (!userAppCountries[log.user]) userAppCountries[log.user] = {};
+      if (!userAppCountries[log.user][log.application]) {
+        userAppCountries[log.user][log.application] = { countries: new Set(), logs: [] };
+      }
+      userAppCountries[log.user][log.application].countries.add(country);
+      userAppCountries[log.user][log.application].logs.push(log);
+    });
+
+    Object.entries(userAppCountries).forEach(([user, apps]) => {
+      Object.entries(apps).forEach(([app, data]) => {
+        if (data.countries.size > 1 && (cliApps.includes(app) || adminApps.includes(app) || vpnApps.includes(app))) {
+          authAnomalies.push({
+            type: 'MULTI_COUNTRY_ACCESS',
+            severity: 'HIGH',
+            user,
+            details: `High-risk app (${app}) accessed from ${data.countries.size} non-trusted countries: ${Array.from(data.countries).join(', ')}`,
+            countries: Array.from(data.countries),
+            logs: data.logs,
+            date: new Date().toISOString()
+          });
+        }
+      });
+    });
+
+    // Tiered Monitoring Stats
+    const getSuccessNonTrusted = (l: AuthLog) => l.status === 'Success' && !isTrustedCountry(l.location.split(',').pop()?.trim() || '');
+
+    const tieredStats = {
+      tier1: filteredLogs.filter(l => getSuccessNonTrusted(l) && (coreApps.some(a => l.application.includes(a)) || cliApps.some(a => l.application.includes(a)))).length,
+      admin: filteredLogs.filter(l => getSuccessNonTrusted(l) && adminApps.some(a => l.application.includes(a))).length,
+      tier2: filteredLogs.filter(l => getSuccessNonTrusted(l) && webApps.some(a => l.application.includes(a))).length,
+      tier3: filteredLogs.filter(l => getSuccessNonTrusted(l) && vpnApps.some(a => l.application.includes(a))).length
+    };
+
     return { 
       highRiskIPs, 
       highRiskUsers, 
@@ -284,9 +369,11 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       impossibleTravel,
       powershellSignins,
       highRiskAppSignins,
+      authAnomalies,
+      tieredStats,
       newEntityAlerts: newEntityAlerts.reverse().slice(0, 20)
     };
-  }, [filteredLogs, impossibleTravel]);
+  }, [filteredLogs, impossibleTravel, userLogs]);
 
   const correlationMetrics = useMemo(() => {
     if (filteredLogs.length === 0) return null;
