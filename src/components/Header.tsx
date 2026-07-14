@@ -4,18 +4,20 @@
  */
 
 import React from 'react';
-import { Shield, LayoutDashboard, Share2, List, Upload, RotateCcw, User } from 'lucide-react';
+import { Shield, LayoutDashboard, Share2, List, Upload, RotateCcw, User, Cloud } from 'lucide-react';
 import { cn } from '../utils/formatters';
-import { TabType } from '../types';
+import { TabType, AuthLog } from '../types';
+import { SyncEntra } from './SyncEntra';
 
 interface HeaderProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   clearFilters: () => void;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onEntraSync: (logs: AuthLog[]) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFilters, handleFileUpload }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFilters, handleFileUpload, onEntraSync }) => {
   return (
     <header className="bg-white border-b border-black sticky top-0 z-10">
       <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
@@ -95,6 +97,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFi
               New File
             </div>
           </label>
+
+          <div className="h-6 w-[1px] bg-black/10 mx-1" />
+
+          <SyncEntra onSyncComplete={onEntraSync} />
         </div>
       </div>
     </header>

@@ -19,6 +19,7 @@ import { AppDetail } from './components/Details/AppDetail';
 import { TravelDetail } from './components/Details/TravelDetail';
 import { HourlyDetail } from './components/Details/HourlyDetail';
 import { AnomalyDetail } from './components/Security/AnomalyDetail';
+import { SyncEntra } from './components/SyncEntra';
 import { useAuthMetrics } from './hooks/useAuthMetrics';
 import { AuthLog, Filters, TabType, CorrelationTabType } from './types';
 
@@ -129,6 +130,11 @@ export default function App() {
     setActiveTab('travel-detail');
   };
 
+  const handleEntraSync = (newLogs: AuthLog[]) => {
+    setLogs(newLogs);
+    setActiveTab('dashboard');
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-black font-sans selection:bg-black selection:text-white">
       <Header 
@@ -136,6 +142,7 @@ export default function App() {
         setActiveTab={setActiveTab} 
         clearFilters={clearFilters} 
         handleFileUpload={handleFileUpload} 
+        onEntraSync={handleEntraSync}
       />
 
       <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
@@ -145,13 +152,17 @@ export default function App() {
               <Upload size={48} />
             </div>
             <h2 className="text-2xl font-bold mb-2 tracking-tight">No Data Loaded</h2>
-            <p className="text-gray-500 mb-8 italic">Upload an Azure AD Interactive Sign-in logs CSV to begin analysis.</p>
-            <label className="cursor-pointer">
-              <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-              <div className="px-8 py-3 bg-black text-white font-bold hover:bg-gray-800 transition-colors shadow-[4px_4px_0px_0px_rgba(100,100,100,1)]">
-                Select CSV File
-              </div>
-            </label>
+            <p className="text-gray-500 mb-8 italic">Upload an Azure AD Interactive Sign-in logs CSV or sync directly with Microsoft Entra.</p>
+            <div className="flex items-center gap-4">
+              <label className="cursor-pointer">
+                <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                <div className="px-8 py-3 bg-black text-white font-bold hover:bg-gray-800 transition-colors shadow-[4px_4px_0px_0px_rgba(100,100,100,1)]">
+                  Select CSV File
+                </div>
+              </label>
+              <div className="text-xs font-bold text-gray-400 uppercase">or</div>
+              <SyncEntra onSyncComplete={handleEntraSync} />
+            </div>
           </div>
         ) : (
           <>
