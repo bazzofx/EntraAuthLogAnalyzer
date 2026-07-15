@@ -38,5 +38,5 @@ export interface Stats {
   uniqueCountries: number;
 }
 
-export type TabType = 'dashboard' | 'logs' | 'flow' | 'security' | 'travel-detail' | 'app-detail' | 'hourly-detail' | 'user-detail' | 'anomaly-detail';
+export type TabType = 'dashboard' | 'logs' | 'flow' | 'security' | 'travel-detail' | 'app-detail' | 'hourly-detail' | 'user-detail' | 'anomaly-detail' | 'admin-login' | 'admin-panel';
 export type CorrelationTabType = 'temporal' | 'geographical' | 'infrastructure' | 'behavioral';

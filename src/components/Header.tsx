@@ -7,14 +7,13 @@ import React from 'react';
 import { Shield, LayoutDashboard, Share2, List, Upload, RotateCcw, User, Cloud } from 'lucide-react';
 import { cn } from '../utils/formatters';
 import { TabType, AuthLog } from '../types';
-import { SyncEntra } from './SyncEntra';
 
 interface HeaderProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   clearFilters: () => void;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onEntraSync: (logs: AuthLog[]) => void;
+  onEntraSync?: (logs: AuthLog[]) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFilters, handleFileUpload, onEntraSync }) => {
@@ -100,7 +99,19 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, clearFi
 
           <div className="h-6 w-[1px] bg-black/10 mx-1" />
 
-          <SyncEntra onSyncComplete={onEntraSync} />
+          <div className="relative group">
+            <button
+              id="admin-btn"
+              onClick={() => setActiveTab('admin-login')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium transition-all flex items-center gap-2 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]",
+                (activeTab === 'admin-login' || activeTab === 'admin-panel') ? "bg-black text-white" : "bg-white hover:bg-gray-50 text-black"
+              )}
+            >
+              <Shield size={16} />
+              Admin
+            </button>
+          </div>
         </div>
       </div>
     </header>

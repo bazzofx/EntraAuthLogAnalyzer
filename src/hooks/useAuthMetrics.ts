@@ -10,18 +10,77 @@ import { isLocationException, isTrustedCountry } from '../config/ExceptionUser';
 import { isUserException } from '../config/travelAlerts';
 import { isIPException } from '../config/NetworkExceptions';
 
-export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = []) => {
+export interface AdminSettings {
+  ipExceptions: string[];
+  locationExceptions: [string, string][];
+  trustedCountries: string[];
+  userExceptions: Record<string, string[]>;
+}
+
+export const useAuthMetrics = (
+  filteredLogs: AuthLog[], 
+  allLogs: AuthLog[] = [],
+  adminSettings?: AdminSettings
+) => {
   const logsForLists = allLogs.length > 0 ? allLogs : filteredLogs;
+
+  const isIPExceptionLocal = (ip: string): boolean => {
+    if (adminSettings) {
+      return adminSettings.ipExceptions.includes(ip);
+    }
+    return isIPException(ip);
+  };
+
+  const isLocationExceptionLocal = (countryA: string, countryB: string): boolean => {
+    if (adminSettings) {
+      return adminSettings.locationExceptions.some(pair => 
+        (pair[0].toUpperCase() === countryA.toUpperCase() && pair[1].toUpperCase() === countryB.toUpperCase()) || 
+        (pair[0].toUpperCase() === countryB.toUpperCase() && pair[1].toUpperCase() === countryA.toUpperCase())
+      );
+    }
+    return isLocationException(countryA, countryB);
+  };
+
+  const isTrustedCountryLocal = (country: string): boolean => {
+    if (adminSettings) {
+      return adminSettings.trustedCountries.some(c => c.toUpperCase() === country.toUpperCase());
+    }
+    return isTrustedCountry(country);
+  };
+
+  const isUserExceptionLocal = (user: string, country: string): boolean => {
+    if (adminSettings) {
+      const allowedCountries = adminSettings.userExceptions[user.toLowerCase()];
+      return allowedCountries ? allowedCountries.some(c => c.toUpperCase() === country.toUpperCase()) : false;
+    }
+    return isUserException(user, country);
+  };
+
+  const sortedFilteredLogs = useMemo(() => {
+    return [...filteredLogs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }, [filteredLogs]);
 
   const stats = useMemo(() => {
     const total = filteredLogs.length;
-    const success = filteredLogs.filter(l => l.status === 'Success').length;
-    const failure = total - success;
-    const uniqueUsers = new Set(filteredLogs.map(l => l.user)).size;
-    const uniqueApps = new Set(filteredLogs.map(l => l.application)).size;
-    const uniqueCountries = new Set(filteredLogs.map(l => l.location.split(',').pop()?.trim())).size;
+    let success = 0;
+    const users = new Set<string>();
+    const apps = new Set<string>();
+    const countries = new Set<string>();
 
-    return { total, success, failure, uniqueUsers, uniqueApps, uniqueCountries };
+    for (let i = 0; i < total; i++) {
+      const l = filteredLogs[i];
+      if (l.status === 'Success') {
+        success++;
+      }
+      users.add(l.user);
+      apps.add(l.application);
+      const country = l.location.split(',').pop()?.trim();
+      if (country) {
+        countries.add(country);
+      }
+    }
+    const failure = total - success;
+    return { total, success, failure, uniqueUsers: users.size, uniqueApps: apps.size, uniqueCountries: countries.size };
   }, [filteredLogs]);
 
   const usersWithMultiCountrySuccess = useMemo(() => {
@@ -42,36 +101,39 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
 
   const userLogs = useMemo<Record<string, AuthLog[]>>(() => {
     const groups: Record<string, AuthLog[]> = {};
-    filteredLogs.forEach(log => {
+    sortedFilteredLogs.forEach(log => {
       if (!groups[log.user]) groups[log.user] = [];
       groups[log.user].push(log);
     });
     return groups;
-  }, [filteredLogs]);
+  }, [sortedFilteredLogs]);
 
   const impossibleTravel = useMemo(() => {
     const alerts: any[] = [];
 
     Object.entries(userLogs).forEach(([user, logs]) => {
       const typedLogs = logs as AuthLog[];
-      const sorted = [...typedLogs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const l1 = sorted[i];
-        const l2 = sorted[i+1];
-        const t1 = parseISO(l1.date);
-        const t2 = parseISO(l2.date);
-        const diffMinutes = differenceInMinutes(t2, t1);
+      for (let i = 0; i < typedLogs.length - 1; i++) {
+        const l1 = typedLogs[i];
+        const l2 = typedLogs[i+1];
         
         const c1 = l1.location.split(',').pop()?.trim() || '';
         const c2 = l2.location.split(',').pop()?.trim() || '';
 
+        // Optimization: skip if same country
+        if (!c1 || !c2 || c1 === c2) continue;
+
         // Check user-specific country exceptions
-        if (isUserException(user, c1) || isUserException(user, c2)) continue;
+        if (isUserExceptionLocal(user, c1) || isUserExceptionLocal(user, c2)) continue;
 
         // Check location-pair exceptions
-        if (c1 && c2 && isLocationException(c1, c2)) continue;
+        if (isLocationExceptionLocal(c1, c2)) continue;
 
-        if (c1 && c2 && c1 !== c2 && diffMinutes < 240) {
+        const t1 = parseISO(l1.date);
+        const t2 = parseISO(l2.date);
+        const diffMinutes = differenceInMinutes(t2, t1);
+
+        if (diffMinutes < 240) {
           if (usersWithMultiCountrySuccess.has(user)) {
             alerts.push({
               id: `${user}-${i}`,
@@ -87,7 +149,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       }
     });
     return alerts;
-  }, [filteredLogs, usersWithMultiCountrySuccess]);
+  }, [userLogs, usersWithMultiCountrySuccess]);
 
   const securityMetrics = useMemo(() => {
     if (filteredLogs.length === 0) return {
@@ -105,7 +167,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     // High Risk IPs
     const ipFailures: Record<string, { count: number, users: Set<string> }> = {};
     filteredLogs.forEach(log => {
-      if (log.status !== 'Success' && !isIPException(log.ipAddress)) {
+      if (log.status !== 'Success' && !isIPExceptionLocal(log.ipAddress)) {
         if (!ipFailures[log.ipAddress]) ipFailures[log.ipAddress] = { count: 0, users: new Set() };
         ipFailures[log.ipAddress].count++;
         ipFailures[log.ipAddress].users.add(log.user);
@@ -153,7 +215,10 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     const hourCounts: Record<number, number> = {};
     for (let i = 0; i < 24; i++) hourCounts[i] = 0;
     filteredLogs.forEach(log => {
-      const hour = parseISO(log.date).getHours();
+      let hour = parseInt(log.date.slice(11, 13), 10);
+      if (isNaN(hour) || hour < 0 || hour > 23) {
+        hour = parseISO(log.date).getHours();
+      }
       hourCounts[hour]++;
     });
     const hourlyData = Object.entries(hourCounts).map(([hour, count]) => ({
@@ -214,15 +279,15 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     const newEntityAlerts: any[] = [];
     const userHistory: Record<string, { ips: Set<string>, countries: Set<string> }> = {};
     
-    [...filteredLogs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime()).forEach(log => {
+    sortedFilteredLogs.forEach(log => {
       if (log.status !== 'Success') return;
       
+      const country = log.location.split(',').pop()?.trim() || '';
       if (!userHistory[log.user]) {
-        userHistory[log.user] = { ips: new Set([log.ipAddress]), countries: new Set([log.location.split(',').pop()?.trim() || '']) };
+        userHistory[log.user] = { ips: new Set([log.ipAddress]), countries: new Set([country]) };
         return;
       }
 
-      const country = log.location.split(',').pop()?.trim() || '';
       const isNewIP = !userHistory[log.user].ips.has(log.ipAddress);
       const isNewCountry = country && !userHistory[log.user].countries.has(country);
 
@@ -290,16 +355,15 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     // 1. CLI Login After Web Login
     Object.entries(userLogs).forEach(([user, logs]) => {
       const typedLogs = logs as AuthLog[];
-      const sorted = [...typedLogs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const l1 = sorted[i];
-        const l2 = sorted[i+1];
+      for (let i = 0; i < typedLogs.length - 1; i++) {
+        const l1 = typedLogs[i];
+        const l2 = typedLogs[i+1];
         
         const isWeb = webApps.some(app => l1.application.toLowerCase().includes(app.toLowerCase()));
         const isCLI = cliApps.some(app => l2.application.toLowerCase().includes(app.toLowerCase()));
         const country2 = l2.location.split(',').pop()?.trim() || '';
         
-        if (isWeb && isCLI && !isTrustedCountry(country2)) {
+        if (isWeb && isCLI && !isTrustedCountryLocal(country2)) {
           const t1 = parseISO(l1.date);
           const t2 = parseISO(l2.date);
           const diff = differenceInMinutes(t2, t1);
@@ -323,7 +387,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     filteredLogs.forEach(log => {
       if (log.status !== 'Success') return;
       const country = log.location.split(',').pop()?.trim() || 'Unknown';
-      if (isTrustedCountry(country)) return; // Only count success access from countries outside the exception
+      if (isTrustedCountryLocal(country)) return; // Only count success access from countries outside the exception
 
       if (!userAppCountries[log.user]) userAppCountries[log.user] = {};
       if (!userAppCountries[log.user][log.application]) {
@@ -350,7 +414,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     });
 
     // Tiered Monitoring Stats
-    const getSuccessNonTrusted = (l: AuthLog) => l.status === 'Success' && !isTrustedCountry(l.location.split(',').pop()?.trim() || '');
+    const getSuccessNonTrusted = (l: AuthLog) => l.status === 'Success' && !isTrustedCountryLocal(l.location.split(',').pop()?.trim() || '');
 
     const tieredStats = {
       tier1: filteredLogs.filter(l => getSuccessNonTrusted(l) && (coreApps.some(a => l.application.includes(a)) || cliApps.some(a => l.application.includes(a)))).length,
@@ -373,7 +437,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       tieredStats,
       newEntityAlerts: newEntityAlerts.reverse().slice(0, 20)
     };
-  }, [filteredLogs, impossibleTravel, userLogs]);
+  }, [filteredLogs, impossibleTravel, userLogs, sortedFilteredLogs]);
 
   const correlationMetrics = useMemo(() => {
     if (filteredLogs.length === 0) return null;
@@ -382,26 +446,22 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     const bruteForce: any[] = [];
     const passwordSpray: any[] = [];
     
-    const userLogs: Record<string, AuthLog[]> = {};
     const ipLogs: Record<string, AuthLog[]> = {};
 
-    filteredLogs.forEach(log => {
-      if (!userLogs[log.user]) userLogs[log.user] = [];
-      userLogs[log.user].push(log);
-
+    sortedFilteredLogs.forEach(log => {
       if (!ipLogs[log.ipAddress]) ipLogs[log.ipAddress] = [];
       ipLogs[log.ipAddress].push(log);
     });
 
     // Temporal
     Object.entries(userLogs).forEach(([user, logs]) => {
-      const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+      const typedLogs = logs as AuthLog[];
       
-      for (let i = 0; i < sorted.length - 5; i++) {
-        const start = parseISO(sorted[i].date);
-        const end = parseISO(sorted[i+5].date);
+      for (let i = 0; i < typedLogs.length - 5; i++) {
+        const start = parseISO(typedLogs[i].date);
+        const end = parseISO(typedLogs[i+5].date);
         if (end.getTime() - start.getTime() < 60000) {
-          rapidSequences.push({ user, count: 6, time: sorted[i].date });
+          rapidSequences.push({ user, count: 6, time: typedLogs[i].date });
           break;
         }
       }
@@ -409,8 +469,8 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       let consecutiveFailures = 0;
       let firstFailureTime: Date | null = null;
 
-      for (let i = 0; i < sorted.length; i++) {
-        const log = sorted[i];
+      for (let i = 0; i < typedLogs.length; i++) {
+        const log = typedLogs[i];
         if (log.status !== 'Success') {
           if (consecutiveFailures === 0) firstFailureTime = parseISO(log.date);
           consecutiveFailures++;
@@ -436,14 +496,13 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
 
     // Password Spray Detection
     Object.entries(ipLogs).forEach(([ip, logs]) => {
-      if (isIPException(ip)) return;
+      if (isIPExceptionLocal(ip)) return;
       const uniqueUsers = new Set(logs.map(l => l.user));
       if (uniqueUsers.size >= 5) {
-        const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
         passwordSpray.push({ 
           ip, 
           userCount: uniqueUsers.size, 
-          time: sorted[0].date,
+          time: logs[0].date,
           users: Array.from(uniqueUsers).slice(0, 3)
         });
       }
@@ -457,7 +516,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
 
     filteredLogs.forEach(log => {
       // Skip IP exceptions
-      if (isIPException(log.ipAddress)) return;
+      if (isIPExceptionLocal(log.ipAddress)) return;
 
       if (!ipToUsers[log.ipAddress]) ipToUsers[log.ipAddress] = new Set();
       ipToUsers[log.ipAddress].add(log.user);
@@ -499,12 +558,12 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
     });
 
     Object.entries(userLogs).forEach(([user, logs]) => {
-      const sorted = [...logs].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const c1 = sorted[i].location.split(',').pop()?.trim();
-        const c2 = sorted[i+1].location.split(',').pop()?.trim();
+      const typedLogs = logs as AuthLog[];
+      for (let i = 0; i < typedLogs.length - 1; i++) {
+        const c1 = typedLogs[i].location.split(',').pop()?.trim();
+        const c2 = typedLogs[i+1].location.split(',').pop()?.trim();
         if (c1 && c2 && c1 !== c2) {
-          countryTransitions.push({ user, from: c1, to: c2, time: sorted[i+1].date });
+          countryTransitions.push({ user, from: c1, to: c2, time: typedLogs[i+1].date });
         }
       }
     });
@@ -524,7 +583,7 @@ export const useAuthMetrics = (filteredLogs: AuthLog[], allLogs: AuthLog[] = [])
       deviceCount: Object.keys(deviceTypes).length,
       browserCount: Object.keys(browserTypes).length
     };
-  }, [filteredLogs, impossibleTravel]);
+  }, [filteredLogs, impossibleTravel, userLogs, sortedFilteredLogs]);
 
   const locationDistribution = useMemo(() => {
     const counts: Record<string, number> = {};

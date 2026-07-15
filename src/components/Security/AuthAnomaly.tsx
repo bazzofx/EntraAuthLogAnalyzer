@@ -129,7 +129,7 @@ export const AuthAnomaly: React.FC<AuthAnomalyProps> = ({
         {/* Watchlist / Threat Intel Column */}
         <div className="space-y-4">
           <div className="bg-red-900 text-white p-4 border-2 border-black">
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+            <h3 className="text-[13px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
               <AlertTriangle size={14} className="text-yellow-400" /> Threat Intel Watchlist
             </h3>
             <div className="space-y-3">
@@ -149,8 +149,8 @@ export const AuthAnomaly: React.FC<AuthAnomalyProps> = ({
           </div>
 
           <div className="bg-white border border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Security Note</h3>
-            <p className="text-[10px] text-gray-600 leading-relaxed italic">
+            <h3 className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-2">Security Note</h3>
+            <p className="text-[12px] text-gray-600 leading-relaxed italic">
               Attackers often target "Identity & Authentication Core" apps to harvest Primary Refresh Tokens (PRT). 
               A successful compromise here allows for long-lived persistence and the ability to bypass MFA in subsequent sessions.
             </p>
@@ -185,7 +185,7 @@ const TierCard = ({ title, count, icon, color, description }: any) => {
 
 const WatchlistItem = ({ title, desc }: any) => (
   <div className="border-l-2 border-yellow-400 pl-3 py-1">
-    <div className="text-[10px] font-bold uppercase text-yellow-400 mb-1">{title}</div>
-    <p className="text-[9px] text-red-100 leading-tight italic">{desc}</p>
+    <div className="text-[12px] font-bold uppercase text-yellow-400 mb-1">{title}</div>
+    <p className="text-[12px] text-red-100 leading-tight italic">{desc}</p>
   </div>
 );

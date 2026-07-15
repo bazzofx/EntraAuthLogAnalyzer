@@ -142,7 +142,11 @@ export const SankeyFlow: React.FC<SankeyFlowProps> = ({
       .attr('dy', '0.35em')
       .attr('text-anchor', d => d.x0 < innerWidth / 2 ? 'start' : 'end')
       .text(d => d.name)
-      .attr('font-size', '10px')
+      .attr('font-size', d => {
+        const cat = d.category?.toLowerCase();
+        if (cat === 'country' || cat === 'location') return '12px';
+        return '11px';
+      })
       .attr('font-family', 'sans-serif')
       .attr('fill', '#000');
 

@@ -1,0 +1,5 @@
+# Optmization on App
+Pre-Sorted Logs Engine: Introduced a memoized, pre-sorted chronological log stream using high-speed string comparisons. This pre-sorted dataset guarantees that user-specific and IP-specific sub-groups are also pre-sorted automatically, eliminating thousands of redundant nested sorting operations across all metrics.
+Fast String-Based Time Slicing: Replaced heavy Date object instantiation and full-date parsing with direct string slice operations to extract hour counts during distribution metrics generation, falling back gracefully only when needed.
+Micro-Optimized Loop Bounds: Streamlined the speed anomaly detection checks to evaluate identical locations and pre-determined exceptions before performing any date differences, avoiding date parsing entirely for over 95% of contiguous logs.
+Neo-Brutalist Log Table Pagination: Added a paginated viewport to the raw authentication logs display table. Limiting DOM rendering to 50 items per page preserves browser memory and prevents rendering freezes while remaining faithful to the thick-bordered neo-brutalist aesthetic.

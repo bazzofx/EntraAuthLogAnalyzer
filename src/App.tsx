@@ -20,6 +20,11 @@ import { TravelDetail } from './components/Details/TravelDetail';
 import { HourlyDetail } from './components/Details/HourlyDetail';
 import { AnomalyDetail } from './components/Security/AnomalyDetail';
 import { SyncEntra } from './components/SyncEntra';
+import { AdminLogin } from './components/Security/AdminLogin';
+import { AdminPanel } from './components/Security/AdminPanel';
+import { IP_EXCEPTIONS } from './config/NetworkExceptions';
+import { LOCATION_EXCEPTIONS, TRUSTED_COUNTRIES } from './config/ExceptionUser';
+import { USER_EXCEPTIONS } from './config/travelAlerts';
 import { useAuthMetrics } from './hooks/useAuthMetrics';
 import { AuthLog, Filters, TabType, CorrelationTabType } from './types';
 
@@ -42,6 +47,19 @@ export default function App() {
     user: 'All',
     app: 'All'
   });
+
+  const [adminSettings, setAdminSettings] = useState({
+    ipExceptions: IP_EXCEPTIONS,
+    locationExceptions: LOCATION_EXCEPTIONS,
+    trustedCountries: TRUSTED_COUNTRIES,
+    userExceptions: USER_EXCEPTIONS,
+  });
+
+  React.useEffect(() => {
+    if (filters.user && filters.user !== 'All') {
+      setSelectedUser(filters.user);
+    }
+  }, [filters.user]);
 
   const clearFilters = useCallback(() => {
     setFilters({
@@ -123,7 +141,7 @@ export default function App() {
     uniqueAppsList,
     uniqueCountries,
     usersWithMultiCountrySuccess
-  } = useAuthMetrics(filteredLogs, logs);
+  } = useAuthMetrics(filteredLogs, logs, adminSettings);
 
   const handleTravelAlertClick = (alert: any) => {
     setSelectedTravelAlert(alert);
@@ -146,7 +164,7 @@ export default function App() {
       />
 
       <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
-        {logs.length === 0 ? (
+        {logs.length === 0 && activeTab !== 'admin-login' && activeTab !== 'admin-panel' ? (
           <div className="h-[60vh] flex flex-col items-center justify-center border-2 border-dashed border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <div className="bg-black text-white p-4 mb-6">
               <Upload size={48} />
@@ -166,12 +184,14 @@ export default function App() {
           </div>
         ) : (
           <>
-            <FilterBar 
-              filters={filters} 
-              setFilters={setFilters} 
-              uniqueUsersList={uniqueUsersList} 
-              uniqueAppsList={uniqueAppsList} 
-            />
+            {logs.length > 0 && activeTab !== 'admin-login' && activeTab !== 'admin-panel' && (
+              <FilterBar 
+                filters={filters} 
+                setFilters={setFilters} 
+                uniqueUsersList={uniqueUsersList} 
+                uniqueAppsList={uniqueAppsList} 
+              />
+            )}
 
             {activeTab === 'dashboard' ? (
               <Dashboard 
@@ -251,6 +271,17 @@ export default function App() {
                 impossibleTravelFilter={impossibleTravelFilter}
                 setImpossibleTravelFilter={setImpossibleTravelFilter}
                 usersWithMultiCountrySuccess={usersWithMultiCountrySuccess}
+              />
+            ) : activeTab === 'admin-login' ? (
+              <AdminLogin 
+                onLoginSuccess={() => setActiveTab('admin-panel')} 
+                setActiveTab={setActiveTab}
+              />
+            ) : activeTab === 'admin-panel' ? (
+              <AdminPanel 
+                adminSettings={adminSettings}
+                setAdminSettings={setAdminSettings}
+                setActiveTab={setActiveTab}
               />
             ) : null}
           </>
